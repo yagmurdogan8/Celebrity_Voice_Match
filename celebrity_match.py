@@ -17,6 +17,7 @@ def record_audio(filename="recorded_audio.wav", duration=DURATION, sample_rate=S
     sd.wait()  # Wait until recording is finished
     print("Recording finished.")
     wavio.write(filename, recording, sample_rate, sampwidth=2)
+    print(f"Audio saved as {filename}")
     return filename
 
 def extract_features(audio_file):
@@ -54,7 +55,7 @@ def match_celebrity(features, labels, user_audio_features):
     return labels[index[0][0]]
 
 def main():
-    dataset_path = "release_in_the_wild/release_in_the_wild"
+    dataset_path = "release_in_the_wild"
     meta_file = "meta.csv"
     
     # Step 1: Prepare the dataset
