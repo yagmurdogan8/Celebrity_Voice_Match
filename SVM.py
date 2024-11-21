@@ -52,9 +52,9 @@ def predict_celebrity(svm_model, scaler, recording_path):
 
 # Main Workflow
 if __name__ == "__main__":
-    dataset_folder = "path/to/dataset/folder"
-    csv_path = "path/to/meta.csv"
-    recording_path = "path/to/your/recording.wav"
+    dataset_folder = "dataset"
+    csv_path = "final_updated_meta.csv"
+    recording_path = "recording.wav"
 
     # Load dataset and train model
     print("Preparing dataset...")
