@@ -9,7 +9,7 @@ from sklearn.svm import SVC
 import os
 
 # Step 1: Record Audio from the Microphone
-def record_audio(duration=5, sample_rate=16000):
+def record_audio(duration=15, sample_rate=16000):
     print("Recording...")
     # Record for the given duration (in seconds)
     audio_data = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='int16')
@@ -34,17 +34,21 @@ def extract_features(file_path, n_mfcc=13):
 
 # Step 4: Prepare Dataset
 def prepare_dataset(dataset_folder, csv_path):
-    data = pd.read_csv(csv_path, header=None, names=["file", "celebrity", "country"])
+    data = pd.read_csv(csv_path, header=0, names=["file", "celebrity", "country"])
     features = []
     labels = []
-    
+
     for _, row in data.iterrows():
         file_path = os.path.join(dataset_folder, row["file"])
+        if not os.path.isfile(file_path):  # Check if the file exists
+            print(f"File not found: {file_path}")
+            continue
         feature = extract_features(file_path)
         if feature is not None:
             features.append(feature)
             labels.append(row["celebrity"])
     return np.array(features), np.array(labels)
+
 
 # Step 5: Train SVM Model
 def train_svm(X, y):
@@ -78,7 +82,7 @@ if __name__ == "__main__":
     svm_model, scaler = train_svm(X, y)
 
     # Step 2: Record audio and save it
-    audio_data, sample_rate = record_audio(duration=5)  # Record for 5 seconds
+    audio_data, sample_rate = record_audio(duration=15)  # Record for 15 seconds
     save_audio(recording_path, audio_data, sample_rate)
 
     # Step 3: Predict celebrity based on recorded audio
