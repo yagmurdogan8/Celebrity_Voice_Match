@@ -174,8 +174,8 @@ def main():
     Adds a 2-second delay before recording and records three separate audios.
     """
     # Define paths
-    model_path = 'model/final_cnn_model.h5'  # Replace with your actual path
-    encoder_path = 'model/label_encoder.joblib'  # Replace with your actual path
+    model_path = 'model/final_cnn_model.h5'
+    encoder_path = 'model/label_encoder.joblib'
 
     # Load the model and encoder
     model, encoder = load_model_and_encoder(model_path, encoder_path, hdf5=True)
