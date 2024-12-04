@@ -3,6 +3,7 @@ import shutil
 import time
 from collections import Counter
 
+import scipy
 import sounddevice as sd
 from matplotlib import pyplot as plt
 from scipy.io.wavfile import write
@@ -168,6 +169,55 @@ def save_predictions(predictions, log_file='prediction_log.txt'):
         print(f"Error saving predictions: {e}")
 
 
+def load_audio(file_path, target_sr=16000):
+    """
+    Load audio file and resample to target sampling rate.
+    """
+    audio, sr = librosa.load(file_path, sr=None)
+    if sr != target_sr:
+        audio = librosa.resample(audio, orig_sr=sr, target_sr=target_sr)
+    return audio, target_sr
+
+
+def bandpass_filter(audio, sr, low=300, high=3400):
+    """
+    Apply a band-pass filter to keep frequencies between low and high.
+    """
+    nyquist = 0.5 * sr
+    low_norm = low / nyquist
+    high_norm = high / nyquist
+    b, a = scipy.signal.butter(4, [low_norm, high_norm], btype='band')
+    filtered_audio = scipy.signal.lfilter(b, a, audio)
+    return filtered_audio
+
+
+def normalize_volume(audio):
+    """
+    Normalize audio to have a consistent volume.
+    """
+    return librosa.util.normalize(audio)
+
+
+def preprocess_audio(file_path, target_sr=16000):
+    """
+    Preprocess audio file with band-pass filtering and normalization.
+    """
+    try:
+        # Step 1: Load and resample
+        audio, sr = load_audio(file_path, target_sr)
+
+        # Step 2: Band-pass filtering
+        audio = bandpass_filter(audio, sr)
+
+        # Step 3: Volume normalization
+        audio = normalize_volume(audio)
+
+        return audio, sr
+    except Exception as e:
+        print(f"Error during preprocessing: {e}")
+        return None, None
+
+
 def main():
     """
     Main function to record audio, save it, plot MFCC, and classify the speaker.
@@ -209,13 +259,29 @@ def main():
         audio_save_path = f'recorded_sample_{i}.wav'
         save_audio(audio_save_path, audio_data, sample_rate)
 
+        # Preprocess the recorded audio (Band-Pass Filtering + Normalization)
+        print(f"Preprocessing Recording {i}...")
+        preprocessed_audio, sr = preprocess_audio(audio_save_path, target_sr=sample_rate)
+
+        if preprocessed_audio is not None:
+            # Save the preprocessed audio
+            preprocessed_audio_save_path = f'recorded_sample_{i}_preprocessed.wav'
+            save_audio(preprocessed_audio_save_path, preprocessed_audio, sample_rate)
+        else:
+            print(f"Preprocessing failed for Recording {i}. Skipping to next.")
+            continue
+
         # Plot the MFCC for the recorded audio
-        print(f"Plotting MFCC for Recording {i}...")
-        plot_mfcc(audio_save_path, sr=sample_rate)
+        # print(f"Plotting MFCC for Recording {i}...")
+        # plot_mfcc(audio_save_path, sr=sample_rate)
+
+        # Plot the MFCC for the recorded preprocessed audio
+        # print(f"Plotting MFCC for Recording {i}...")
+        # plot_mfcc(preprocessed_audio_save_path, sr=sample_rate)
 
         # Classify the recorded audio
         print(f"Classifying Recording {i}...")
-        predicted_speaker = classify_speaker(model, encoder, audio_save_path)
+        predicted_speaker = classify_speaker(model, encoder, preprocessed_audio_save_path)
 
         if predicted_speaker:
             print(f"Recording {i}: The predicted speaker is: {predicted_speaker}")
