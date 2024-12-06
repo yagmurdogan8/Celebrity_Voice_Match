@@ -1,0 +1,4 @@
+*.wav
+.idea
+data
+prediction_log.txt
