@@ -228,14 +228,29 @@ def main():
                 print(f"Explanation:\n{explanation}")
                 predictions.append(predicted_speaker)
     else:
-        # Part 2: Pre-existing audio
-        for i in range(num_recordings):
-            audio_path = f"Trump_{i}.wav"
-            predicted_speaker, explanation = classify_speaker(model, encoder, audio_path)
-            if predicted_speaker:
-                print(f"Prediction: {predicted_speaker}")
-                print(f"Explanation:\n{explanation}")
-                predictions.append(predicted_speaker)
+        # Part 2: Pre-existing audio files
+        print("\nProcessing pre-existing audio files...")
+        for i in range(3):  # Process three files (e.g., Trump_0.wav, Trump_1.wav, Trump_2.wav)
+            audio_save_path = f'Queen_{i}.wav'
+            print(f"\n--- Processing file: {audio_save_path} ---")
+
+            # Preprocess the audio file
+            preprocessed_audio, sr = preprocess_audio(audio_save_path)
+            if preprocessed_audio is not None:
+                preprocessed_audio_save_path = f'pre_existing_sample_{i + 1}_preprocessed.wav'
+                save_audio(preprocessed_audio_save_path, preprocessed_audio, sample_rate=16000)
+
+                # Classify the speaker
+                predicted_speaker, explanation = classify_speaker(model, encoder, preprocessed_audio_save_path)
+
+                if predicted_speaker:
+                    print(f"File {i + 1}: The predicted speaker is {predicted_speaker}")
+                    print(f"Explanation: {explanation}")
+                    predictions.append(predicted_speaker)
+                else:
+                    print(f"File {i + 1}: Failed to classify the speaker.")
+            else:
+                print(f"Preprocessing failed for file {audio_save_path}. Skipping.")
 
     if predictions:
         # Determine majority vote
