@@ -230,7 +230,7 @@ def main():
     else:
         # Part 2: Pre-existing audio
         for i in range(num_recordings):
-            audio_path = f"pre_existing_sample_{i}.wav"
+            audio_path = f"Trump_{i}.wav"
             predicted_speaker, explanation = classify_speaker(model, encoder, audio_path)
             if predicted_speaker:
                 print(f"Prediction: {predicted_speaker}")
