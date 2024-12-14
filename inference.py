@@ -1,29 +1,109 @@
 import os
-import shutil
 import time
-from collections import Counter
-
-import scipy
-import sounddevice as sd
-from matplotlib import pyplot as plt
-from scipy.io.wavfile import write
 import numpy as np
 import librosa
 import joblib
 import tensorflow as tf
+from matplotlib import pyplot as plt
+from scipy.io.wavfile import write
+from collections import Counter
+import sounddevice as sd
+
+
+# Dictionary to store traits for each celebrity
+celebrity_traits = {
+    "Gilbert Gottfried": {
+        "pitch": "High-pitched, often strident and nasal, with frequent spikes in volume.",
+        "speech_rhythm": "Rapid speech with little pause, conveying an anxious or excitable demeanor.",
+        "tone": "Shrill, abrasive, and exaggerated.",
+        "energy": "High-energy, fast-paced delivery, often delivering punchlines quickly.",
+        "timing": "Minimal pauses, giving a sense of urgency or constant agitation."
+    },
+    "Barack Obama": {
+        "pitch": "Deep and controlled, with occasional rises for emphasis.",
+        "speech_rhythm": "Steady, methodical, and calm, with deliberate pacing.",
+        "tone": "Warm, authoritative, and composed.",
+        "energy": "Moderate energy, using pauses effectively to emphasize key points.",
+        "timing": "Strategic pauses to highlight important messages, often with measured cadences."
+    },
+    "Alan Watts": {
+        "pitch": "Smooth and calm, with a moderate pitch that conveys introspection.",
+        "speech_rhythm": "Slower pace, often pausing for reflection.",
+        "tone": "Gentle, contemplative, and soothing.",
+        "energy": "Low energy, meditative, with a focus on calm and understanding.",
+        "timing": "Very deliberate pauses to allow the listener to reflect on his thoughts."
+    },
+    "Bernie Sanders": {
+        "pitch": "Mid to high pitch, often forceful in delivery.",
+        "speech_rhythm": "Rapid and sometimes staccato, particularly when making a passionate point.",
+        "tone": "Assertive, direct, and passionate, with an element of urgency.",
+        "energy": "High energy, conveying a sense of urgency and activism.",
+        "timing": "Quick pauses, usually at the end of sentences to emphasize key political points."
+    },
+    "Donald Trump": {
+        "pitch": "Mid-range, with occasional emphasis on high-pitched exclamations.",
+        "speech_rhythm": "Erratic and sometimes scattered, with bursts of intensity.",
+        "tone": "Boisterous, self-assured, and occasionally combative.",
+        "energy": "High energy, often using exaggerated expressions to emphasize points.",
+        "timing": "Pauses to make dramatic effect, especially during claims or points of contention."
+    },
+    "Arnold Schwarzenegger": {
+        "pitch": "Deep and throaty, with distinct accents and occasional rising pitch.",
+        "speech_rhythm": "Slower, with deliberate emphasis on key words.",
+        "tone": "Commanding, with a strong and distinctive accent.",
+        "energy": "Moderate to high energy, focusing on authority and strength.",
+        "timing": "Clear, calculated pauses to emphasize dramatic delivery."
+    },
+    "Bill Burr": {
+        "pitch": "Mid-range with occasional sharp rises for comedic effect.",
+        "speech_rhythm": "Rapid-paced, sometimes erratic with humorously timed pauses.",
+        "tone": "Sarcastic, blunt, and confrontational.",
+        "energy": "High energy, with bursts of intensity when delivering punchlines or jokes.",
+        "timing": "Pauses for comedic effect, especially in the middle of sentences for emphasis."
+    },
+    "Queen Elizabeth II": {
+        "pitch": "Soft and controlled, with minimal fluctuation in pitch.",
+        "speech_rhythm": "Steady, formal, and deliberate.",
+        "tone": "Authoritative, elegant, and regal.",
+        "energy": "Low energy, maintaining a composed and dignified presence.",
+        "timing": "Controlled pauses, often for emphasis or for the gravitas of the moment."
+    },
+    "Christopher Hitchens": {
+        "pitch": "Varied pitch, often rising in moments of strong rhetoric.",
+        "speech_rhythm": "Moderate speed, with occasional rapid delivery in moments of emphasis.",
+        "tone": "Intellectual, sharp, and occasionally sardonic.",
+        "energy": "Moderate to high energy, especially when making a rhetorical argument.",
+        "timing": "Deliberate pauses to emphasize key points or to allow a counterpoint to sink in."
+    },
+    "Winston Churchill": {
+        "pitch": "Deep, resonant, with powerful fluctuations for effect.",
+        "speech_rhythm": "Steady and deliberate, often with powerful cadences.",
+        "tone": "Authoritative, persuasive, and commanding.",
+        "energy": "High energy, focused on delivering powerful, motivational messages.",
+        "timing": "Long pauses to give weight to critical points."
+    }
+}
+
+
+# Function to generate explanations
+def generate_explanation(predicted_speaker):
+    traits = celebrity_traits.get(predicted_speaker, None)
+    if traits:
+        explanation = (
+            f"Recording classified as {predicted_speaker}. Here are the vocal traits:\n"
+            f"Pitch: {traits['pitch']}\n"
+            f"Speech Rhythm: {traits['speech_rhythm']}\n"
+            f"Tone: {traits['tone']}\n"
+            f"Energy: {traits['energy']}\n"
+            f"Timing: {traits['timing']}\n"
+        )
+        return explanation
+    return "No traits available for this speaker."
 
 
 def record_audio(duration=5, sample_rate=16000, channels=1):
     """
     Records audio from the microphone.
-
-    Parameters:
-    - duration (int): Duration of recording in seconds.
-    - sample_rate (int): Sampling rate in Hz.
-    - channels (int): Number of audio channels.
-
-    Returns:
-    - audio_data (np.ndarray): Recorded audio data.
     """
     print(f"Recording for {duration} seconds...")
     audio_data = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=channels, dtype='int16')
@@ -35,11 +115,6 @@ def record_audio(duration=5, sample_rate=16000, channels=1):
 def save_audio(file_path, audio_data, sample_rate):
     """
     Saves recorded audio to a .wav file.
-
-    Parameters:
-    - file_path (str): Path where the audio file will be saved.
-    - audio_data (np.ndarray): Audio data to save.
-    - sample_rate (int): Sampling rate in Hz.
     """
     write(file_path, sample_rate, audio_data)
     print(f"Audio saved as {file_path}")
@@ -48,14 +123,6 @@ def save_audio(file_path, audio_data, sample_rate):
 def extract_mfcc_feature(file_path, n_mfcc=13, max_frames=300):
     """
     Extracts MFCC features from an audio file.
-
-    Parameters:
-    - file_path (str): Path to the audio file.
-    - n_mfcc (int): Number of MFCCs to extract.
-    - max_frames (int): Number of frames to pad/truncate the MFCC feature.
-
-    Returns:
-    - mfccs (np.ndarray): Extracted and normalized MFCC features with shape (n_mfcc, max_frames).
     """
     try:
         y, sr = librosa.load(file_path, sr=16000)
@@ -68,65 +135,59 @@ def extract_mfcc_feature(file_path, n_mfcc=13, max_frames=300):
         return None
 
 
-def load_model_and_encoder(model_path, encoder_path, hdf5=False):
+def load_model_and_encoder(model_path, encoder_path):
     """
     Loads the trained CNN model and LabelEncoder.
-
-    Parameters:
-    - model_path (str): Path to the saved CNN model (.h5 file or SavedModel directory).
-    - encoder_path (str): Path to the saved LabelEncoder (.joblib file).
-    - hdf5 (bool): True if the model is saved in HDF5 format, False if SavedModel.
-
-    Returns:
-    - model (tf.keras.Model): Loaded Keras model.
-    - encoder (LabelEncoder): Loaded LabelEncoder.
     """
-    # Load the Keras model
     model = tf.keras.models.load_model(model_path)
     print(f"Model successfully loaded from {model_path}")
-
-    # Load the LabelEncoder
     encoder = joblib.load(encoder_path)
     print(f"LabelEncoder successfully loaded from {encoder_path}")
-
     return model, encoder
 
 
-def classify_speaker(model, encoder, audio_path, n_mfcc=13, max_frames=300):
+def classify_speaker(model, encoder, audio_path):
     """
-    Classifies the speaker of a given audio sample.
-
-    Parameters:
-    - model (tf.keras.Model): Trained CNN model.
-    - encoder (LabelEncoder): Fitted LabelEncoder.
-    - audio_path (str): Path to the new audio sample (.wav file).
-    - n_mfcc (int): Number of MFCCs to extract.
-    - max_frames (int): Number of frames to pad/truncate the MFCC feature.
-
-    Returns:
-    - predicted_label (str): Predicted speaker label.
+    Classifies the speaker of a given audio sample and provides an explanation.
     """
-    # Extract features
-    feature = extract_mfcc_feature(audio_path, n_mfcc, max_frames)
+    feature = extract_mfcc_feature(audio_path)
 
     if feature is not None:
-        # Prepare the input for the model
-        X_new = np.array(feature)  # Shape: (n_mfcc, max_frames)
-        X_new = X_new[np.newaxis, ..., np.newaxis]  # Shape: (1, n_mfcc, max_frames, 1)
-
-        # Make prediction
+        X_new = np.array(feature)[np.newaxis, ..., np.newaxis]  # Add batch and channel dimensions
         prediction = model.predict(X_new)
-
-        # Get the predicted class index
         predicted_class_index = np.argmax(prediction, axis=1)[0]
-
-        # Decode the class index to the original label
         predicted_label = encoder.inverse_transform([predicted_class_index])[0]
 
-        return predicted_label
+        # Generate explanation
+        explanation = generate_explanation(predicted_label)
+
+        return predicted_label, explanation
     else:
         print("Feature extraction failed for the new sample.")
-        return None
+        return None, None
+
+
+def preprocess_audio(file_path):
+    """
+    Preprocess audio file with preemphasis.
+    """
+    audio, sr = librosa.load(file_path, sr=16000)
+    audio = librosa.effects.preemphasis(audio)
+    return audio, sr
+
+
+def save_predictions(predictions, log_file='prediction_log.txt'):
+    """
+    Saves predictions to a log file.
+    """
+    try:
+        with open(log_file, 'a') as f:
+            for i, label in enumerate(predictions, 1):
+                f.write(f"Chunk {i}: {label}\n")
+            f.write("\n")
+        print(f"Predictions saved to {log_file}")
+    except Exception as e:
+        print(f"Error saving predictions: {e}")
 
 
 def plot_mfcc(audio_path, sr=16000, n_mfcc=13, max_frames=300):
@@ -151,153 +212,83 @@ def plot_mfcc(audio_path, sr=16000, n_mfcc=13, max_frames=300):
         print("Failed to plot MFCC.")
 
 
-def save_predictions(predictions, log_file='prediction_log.txt'):
-    """
-    Saves the predictions to a log file.
-
-    Parameters:
-    - predictions (list): List of predicted speaker labels.
-    - log_file (str): Path to the log file.
-    """
-    try:
-        with open(log_file, 'a') as f:
-            for i, label in enumerate(predictions, 1):
-                f.write(f"Chunk {i}: {label}\n")
-            f.write("\n")
-        print(f"Predictions saved to {log_file}")
-    except Exception as e:
-        print(f"Error saving predictions: {e}")
-
-
-def load_audio(file_path, target_sr=16000):
-    """
-    Load audio file and resample to target sampling rate.
-    """
-    audio, sr = librosa.load(file_path, sr=None)
-    if sr != target_sr:
-        audio = librosa.resample(audio, orig_sr=sr, target_sr=target_sr)
-    return audio, target_sr
-
-
-def bandpass_filter(audio, sr, low=300, high=3400):
-    """
-    Apply a band-pass filter to keep frequencies between low and high.
-    """
-    nyquist = 0.5 * sr
-    low_norm = low / nyquist
-    high_norm = high / nyquist
-    b, a = scipy.signal.butter(4, [low_norm, high_norm], btype='band')
-    filtered_audio = scipy.signal.lfilter(b, a, audio)
-    return filtered_audio
-
-
-def normalize_volume(audio):
-    """
-    Normalize audio to have a consistent volume.
-    """
-    return librosa.util.normalize(audio)
-
-
-def preprocess_audio(file_path, target_sr=16000):
-    """
-    Preprocess audio file with band-pass filtering and normalization.
-    """
-    try:
-        # Step 1: Load and resample
-        audio, sr = load_audio(file_path, target_sr)
-
-        # Step 2: Band-pass filtering
-        audio = bandpass_filter(audio, sr)
-
-        # Step 3: Volume normalization
-        audio = normalize_volume(audio)
-
-        return audio, sr
-    except Exception as e:
-        print(f"Error during preprocessing: {e}")
-        return None, None
-
-
 def main():
     """
-    Main function to record audio, save it, plot MFCC, and classify the speaker.
-    Adds a 2-second delay before recording and records three separate audios.
+    Main function with two modes:
+    - Part 1: Record audio live, classify and show explanations.
+    - Part 2: Process pre-existing audio files and show explanations.
     """
     # Define paths
     model_path = 'model/final_cnn_model.h5'
     encoder_path = 'model/label_encoder.joblib'
 
     # Load the model and encoder
-    model, encoder = load_model_and_encoder(model_path, encoder_path, hdf5=True)
+    model, encoder = load_model_and_encoder(model_path, encoder_path)
     if model is None or encoder is None:
         print("Failed to load model or encoder. Exiting.")
         return
 
-    # Add a 2-second delay before starting the first recording
-    print("Get ready to speak. Recording will start in 2 seconds...")
-    time.sleep(2)
+    # Choose mode
+    part = int(input("Run part 1 (live recording) or part 2 (pre-existing files)? "))
 
-    # Number of recordings
     num_recordings = 3
-
-    # List to store predictions
     predictions = []
 
-    for i in range(1, num_recordings + 1):
-        print(f"\n--- Recording {i} ---")
-        duration = 10  # Duration in seconds
-        sample_rate = 16000  # Sampling rate in Hz
-        channels = 1  # Mono recording
+    if part == 1:
+        # Part 1: Live Recording
+        print("Get ready to speak. Recording will start in 2 seconds...")
+        time.sleep(2)
+        for i in range(num_recordings):
+            print(f"Recording {i+1}...")
+            audio_data = record_audio(duration=10, sample_rate=16000, channels=1)
+            audio_path = f"recorded_sample_{i}.wav"
+            save_audio(audio_path, audio_data, 16000)
 
-        # Record audio
-        audio_data = record_audio(duration=duration, sample_rate=sample_rate, channels=channels)
-        if audio_data is None:
-            print(f"Recording {i} failed. Skipping to next.")
-            continue
+            # Plot the MFCC for the recorded audio
+            print(f"Plotting MFCC for Recording {i}...")
+            plot_mfcc(audio_path, sr=16000)
 
-        # Save the recorded audio with a unique filename
-        audio_save_path = f'recorded_sample_{i}.wav'
-        save_audio(audio_save_path, audio_data, sample_rate)
-
-        # Preprocess the recorded audio (Band-Pass Filtering + Normalization)
-        print(f"Preprocessing Recording {i}...")
-        preprocessed_audio, sr = preprocess_audio(audio_save_path, target_sr=sample_rate)
-
-        if preprocessed_audio is not None:
-            # Save the preprocessed audio
-            preprocessed_audio_save_path = f'recorded_sample_{i}_preprocessed.wav'
-            save_audio(preprocessed_audio_save_path, preprocessed_audio, sample_rate)
-        else:
-            print(f"Preprocessing failed for Recording {i}. Skipping to next.")
-            continue
-
-        # Plot the MFCC for the recorded audio
-        # print(f"Plotting MFCC for Recording {i}...")
-        # plot_mfcc(audio_save_path, sr=sample_rate)
-
-        # Plot the MFCC for the recorded preprocessed audio
-        # print(f"Plotting MFCC for Recording {i}...")
-        # plot_mfcc(preprocessed_audio_save_path, sr=sample_rate)
-
-        # Classify the recorded audio
-        print(f"Classifying Recording {i}...")
-        predicted_speaker = classify_speaker(model, encoder, preprocessed_audio_save_path)
-
-        if predicted_speaker:
-            print(f"Recording {i}: The predicted speaker is: {predicted_speaker}")
-            predictions.append(predicted_speaker)
-        else:
-            print(f"Recording {i}: Failed to classify the speaker.")
-
-    # Determine the most frequent prediction
-    if predictions:
-        counter = Counter(predictions)
-        most_common_speaker, count = counter.most_common(1)[0]
-        print(f"\nFinal Prediction: The most frequent predicted speaker is {most_common_speaker} (Predicted {count} times).")
+            # Preprocess and classify
+            predicted_speaker, explanation = classify_speaker(model, encoder, audio_path)
+            if predicted_speaker:
+                print(f"Prediction: {predicted_speaker}")
+                print(f"Explanation:\n{explanation}")
+                predictions.append(predicted_speaker)
     else:
-        print("\nNo valid predictions were made from the recordings.")
+        # Part 2: Pre-existing audio files
+        print("\nProcessing pre-existing audio files...")
+        for i in range(3):  # Process three files (e.g., Trump_0.wav, Trump_1.wav, Trump_2.wav)
+            audio_save_path = f'inference_test_audios/Trump_{i}.wav'
+            print(f"\n--- Processing file: {audio_save_path} ---")
 
-    # Save all predictions to a log file
+            # Preprocess the audio file
+            preprocessed_audio, sr = preprocess_audio(audio_save_path)
+            if preprocessed_audio is not None:
+                preprocessed_audio_save_path = f'pre_existing_sample_{i + 1}_preprocessed.wav'
+                save_audio(preprocessed_audio_save_path, preprocessed_audio, sample_rate=16000)
+
+                # Plot the MFCC for the recorded audio
+                print(f"Plotting MFCC for Recording {i}...")
+                plot_mfcc(preprocessed_audio_save_path, sr=16000)
+
+                # Classify the speaker
+                predicted_speaker, explanation = classify_speaker(model, encoder, preprocessed_audio_save_path)
+
+                if predicted_speaker:
+                    print(f"File {i + 1}: The predicted speaker is {predicted_speaker}")
+                    print(f"Explanation: {explanation}")
+                    predictions.append(predicted_speaker)
+                else:
+                    print(f"File {i + 1}: Failed to classify the speaker.")
+            else:
+                print(f"Preprocessing failed for file {audio_save_path}. Skipping.")
+
+    if predictions:
+        # Determine majority vote
+        counter = Counter(predictions)
+        most_common, count = counter.most_common(1)[0]
+        print(f"\nMost Common Prediction: {most_common} predicted {count} times.")
+
     save_predictions(predictions)
 
 
