@@ -231,7 +231,7 @@ def main():
         # Part 2: Pre-existing audio files
         print("\nProcessing pre-existing audio files...")
         for i in range(3):  # Process three files (e.g., Trump_0.wav, Trump_1.wav, Trump_2.wav)
-            audio_save_path = f'Queen_{i}.wav'
+            audio_save_path = f'Trump_{i}.wav'
             print(f"\n--- Processing file: {audio_save_path} ---")
 
             # Preprocess the audio file
